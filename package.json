@@ -4,7 +4,8 @@
   "description": "Creación de un MVC para la Práctica-03, estableciendo su conexión a la DB",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "server":"nodemon app.js"
   },
   "author": "Yáred Amaury Romero Martínez",
   "license": "ISC",

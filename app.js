@@ -3,7 +3,7 @@ import session from "express-session";
 import morgan from "morgan";
 import bodyParser from "body-parser";
 import cors from "cors";
-import userRouter from "./src/routes/users.routes.js";
+import userRouter from "../src/routes/users.routes.js";
 
 const app = express();
 const activeSessions = {}; // Definimos las sesiones activas
