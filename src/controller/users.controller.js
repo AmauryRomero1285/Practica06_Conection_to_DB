@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import moment from "moment-timezone";
 import os from "os";
-import userData from "../src/models/User.js";
+import userData from "../data/users.data.js";
 
 const activeSessions = {}; // Variable para manejar sesiones activas
 
@@ -31,7 +31,9 @@ const calculateSessionInactivity = (lastAccessedAt) => {
 const insert = async (req, res) => {
   const { email, nickname, macAddress } = req.body;
   if (!email || !nickname || !macAddress) {
-    return res.status(400).json({ message: "Todos los campos son obligatorios" });
+    return res
+      .status(400)
+      .json({ message: "Todos los campos son obligatorios" });
   }
 
   try {
@@ -56,7 +58,9 @@ const insert = async (req, res) => {
 const login = (req, res) => {
   const { email, nickname, macAddress } = req.body;
   if (!email || !nickname || !macAddress) {
-    return res.status(400).json({ message: "Todos los campos son obligatorios" });
+    return res
+      .status(400)
+      .json({ message: "Todos los campos son obligatorios" });
   }
 
   const sessionId = uuidv4();
@@ -109,18 +113,26 @@ const sessionStatus = (req, res) => {
 
 // Listar sesiones activas
 const listSessions = (req, res) => {
-  const sessions = Object.values(activeSessions).map(session => ({
+  const sessions = Object.values(activeSessions).map((session) => ({
     sessionId: session.sessionId,
     email: session.email,
     nickname: session.nickname,
     macAddress: session.macAddress,
     ip: session.ip,
     createdAt: moment(session.createdAt).format("YYYY-MM-DD HH:mm:ss"),
-    lastAccessedAt: moment(session.lastAccessedAt).format("YYYY-MM-DD HH:mm:ss"),
+    lastAccessedAt: moment(session.lastAccessedAt).format(
+      "YYYY-MM-DD HH:mm:ss"
+    ),
     inactivityTime: calculateSessionInactivity(session.lastAccessedAt),
   }));
 
-  res.status(200).json({ message: "Sesiones activas", totalSessions: sessions.length, sessions });
+  res
+    .status(200)
+    .json({
+      message: "Sesiones activas",
+      totalSessions: sessions.length,
+      sessions,
+    });
 };
 
 export default { insert, login, logout, sessionStatus, listSessions };

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import userController from "../src/controller/users.controller.js";
+import usersController from "../controller/users.controller.js"; 
 
 const userRouter = Router();
 
@@ -12,14 +12,14 @@ userRouter.get("/", (req, res) => {
 });
 
 // Rutas de usuario
-userRouter.post("/register", userController.insert);
-userRouter.put("/update/:sessionID", userController.update);
-userRouter.get("/showUsers", userController.showUsers);
+userRouter.post("/register", usersController.insert);
+//userRouter.put("/update/:sessionID", usersController.update);
+//userRouter.get("/showUsers", usersController.showUsers);
 
 // Rutas de sesión
-userRouter.post("/login", userController.login);
-userRouter.post("/logout", userController.logout);
-userRouter.post("/status", userController.sessionStatus);
-userRouter.get("/currentSessions", userController.listSessions);
+userRouter.post("/login", usersController.login);
+userRouter.post("/logout", usersController.logout);
+userRouter.post("/status", usersController.sessionStatus);
+userRouter.get("/currentSessions", usersController.listSessions);
 
 export default userRouter;

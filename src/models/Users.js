@@ -10,12 +10,11 @@ const userSchema = new Schema(
     nickname: String,
     macAddress:{
       unique: true,
-      require: true,
       type: String,
     },
     ip:{
       unique: true,
-      type: Number,
+      type: String,
     },
   },
   {

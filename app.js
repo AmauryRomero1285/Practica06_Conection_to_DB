@@ -3,13 +3,13 @@ import session from "express-session";
 import morgan from "morgan";
 import bodyParser from "body-parser";
 import cors from "cors";
-import userRouter from "../src/routes/users.routes.js";
+import userRouter from "./src/routes/users.routes.js";
 
 const app = express();
 const activeSessions = {}; // Definimos las sesiones activas
 
 // Configuración del servidor
-app.set("port", process.env.PORT || 3000);
+app.set("port", process.env.PORT || 3500);
 //middleware
 app.use(express.json());
 app.use(cors());
@@ -27,6 +27,6 @@ app.use(
 );
 
 // Usar las rutas de usuarios
-app.use("/user", userRouter);
+app.use("/", userRouter);
 
 export default app;

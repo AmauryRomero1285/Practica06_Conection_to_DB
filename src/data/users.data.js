@@ -1,5 +1,5 @@
 const userData={};
-import User from '../src/models/User.js';
+import User from '../models/Users.js';
 
 //Crear usuario
 userData.insert=async(user)=>{
