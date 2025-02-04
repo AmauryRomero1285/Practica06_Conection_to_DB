@@ -1,21 +1,15 @@
 import { model, Schema } from "mongoose";
 const userSchema = new Schema(
   {
-    session_ID: {
+    user_id: {
       unique: true,
       require: true,
       type: String,
     },
     email: String,
     nickname: String,
-    macAddress:{
-      unique: true,
-      type: String,
-    },
-    ip:{
-      unique: true,
-      type: String,
-    },
+    macAddress:String,
+    ip:String,
   },
   {
     versionKey: false,
