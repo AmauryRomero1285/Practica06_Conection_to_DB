@@ -20,4 +20,10 @@ sessionData.findSession=async(session_ID)=>{
     return await Session.findOne({session_ID: session_ID});
 };
 
+
+//actualizar sesión
+sessionData.update = async (sessionID, session) => {
+  return await Session.findOneAndUpdate({ session_ID: sessionID }, session);
+};
+
 export default sessionData;

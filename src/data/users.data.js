@@ -7,8 +7,8 @@ userData.insert = async (user) => {
 };
 
 // Buscar usuario por dirección MAC
-userData.findByMacAddress = async (macAddress) => {
-    return await User.findOne({ macAddress });
+userData.findByEmail = async (email) => {
+    return await User.findOne({ email });
 };
 
 userData.findById = async (user_id) => {
