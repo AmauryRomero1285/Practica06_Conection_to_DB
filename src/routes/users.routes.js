@@ -13,13 +13,15 @@ userRouter.get("/", (req, res) => {
 
 // Rutas de usuario
 userRouter.post("/register", usersController.insert);
-//userRouter.put("/update/:sessionID", usersController.update);
-//userRouter.get("/showUsers", usersController.showUsers);
+userRouter.get("/update/:sessionID", usersController.update);
+userRouter.get("/showUsers", usersController.showUsers);
+userRouter.post('/deleteUser',usersController.deleteUser);
 
 // Rutas de sesión
 userRouter.post("/login", usersController.login);
 userRouter.post("/logout", usersController.logout);
 userRouter.post("/status", usersController.sessionStatus);
 userRouter.get("/currentSessions", usersController.listSessions);
+userRouter.get("/deleteSessions",usersController.deleteSessions);
 
 export default userRouter;

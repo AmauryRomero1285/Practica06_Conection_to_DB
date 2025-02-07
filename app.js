@@ -6,7 +6,7 @@ import cors from "cors";
 import userRouter from "./src/routes/users.routes.js";
 
 const app = express();
-const activeSessions = {}; // Definimos las sesiones activas
+
 
 // Configuración del servidor
 app.set("port", process.env.PORT || 3500);
