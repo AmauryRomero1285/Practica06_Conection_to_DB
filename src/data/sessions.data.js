@@ -21,9 +21,14 @@ sessionData.findSession=async(session_ID)=>{
 };
 
 
-//actualizar sesión
+//Actualizar sesión
 sessionData.update = async (sessionID, session) => {
   return await Session.findOneAndUpdate({ session_ID: sessionID }, session);
+};
+
+//Eliminar Sesiones
+sessionData.delete = async () => {
+  return await Session.deleteMany();
 };
 
 export default sessionData;

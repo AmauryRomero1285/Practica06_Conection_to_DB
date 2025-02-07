@@ -3,6 +3,7 @@ import moment from "moment-timezone";
 import os from "os";
 import userData from "../data/users.data.js";
 import sessionData from "../data/sessions.data.js";
+import crypto from "crypto";
 
 // Función para obtener la IP local
 const getLocalIP = () => {
@@ -53,6 +54,32 @@ const calculateSessionInactivity = async (sessionId, lastAccessedAt) => {
   return inactivityTime;
 };
 
+//Funcion para generar un id
+const generateID = () => {
+  return (
+    Math.floor(10000 + Math.random() * 90000) +
+    Date.now().toString().slice(-5)
+  );
+};
+
+// Generar clave pública y privada para cifrado
+const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+  modulusLength: 512,
+  publicKeyEncoding: { type: "spki", format: "pem" },
+  privateKeyEncoding: { type: "pkcs8", format: "pem" },
+});
+
+// Función para cifrar datos
+const encryptData = (data) => {
+  return crypto.publicEncrypt(publicKey, Buffer.from(data)).toString("base64");
+};
+
+// Función para descifrar datos
+const decryptData = (encryptedData) => {
+  return crypto.privateDecrypt(privateKey, Buffer.from(encryptedData, "base64")).toString();
+};
+
+
 // Registrar usuario
 const insert = async (req, res) => {
   const { email, nickname, macAddress } = req.body;
@@ -64,16 +91,17 @@ const insert = async (req, res) => {
   }
 
   try {
-    const existingUser = await userData.findByEmail(email);
-    if (existingUser) {
-      return res.status(400).json({
-        message: `Ya se encuentra un usuario registrado`,
-      });
-    }
+     const existingUser = await userData.findByEmail(email);
+     if (existingUser) {
+       return res.status(400).json({
+         message: `Ya se encuentra un usuario registrado`,
+       });
+     }
 
-    const userId = uuidv4();
+    const userId = generateID();
+    const encryptedUserId = encryptData(userId);
     const user = await userData.insert({
-      user_id: userId,
+      user_id: encryptedUserId,
       email,
       nickname,
       macAddress,
@@ -97,7 +125,6 @@ const login = async (req, res) => {
       .status(400)
       .json({ message: "Todos los campos son obligatorios" });
   }
-
   try {
     const user = await userData.findById(user_id);
     if (!user) {
@@ -140,7 +167,6 @@ const login = async (req, res) => {
   }
 };
 
-// Cerrar sesión
 // Cerrar sesión
 const logout = async (req, res) => {
   const { sessionId } = req.body;
@@ -217,4 +243,79 @@ const listSessions = async (req, res) => {
   }
 };
 
-export default { insert, login, logout, sessionStatus, listSessions };
+// Mostrar las sesiones activas en al base de datos
+const showUsers = async (req, res) => {
+  try {
+    const users = await userData.showUsers();
+    res.status(200).json({ message: "Usuarios registrados: ", users });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+//Actualizar usuario
+const update = async (req, res) => {
+  try {
+    const sessionId = req.params.sessionId;
+    await sessionData.update(sessionId, {
+      status: "active",
+      lastAccessedAt: new Date(),
+    });
+    res.status(200).json({ message: "Sesión actualizada exitosamente" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+//Borrar sesiones
+const deleteSessions = async (req, res) => {
+  try {
+    await sessionData.delete();
+    res.status(200).json({ message: "Sesiones eliminadas exitosamente" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+//Borrar usuario
+const deleteUser = async (req, res) => {
+  const {user_id} = req.body;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "ID de usuario requerido" });
+  }
+
+  try {
+    let decryptedUserId;
+    try {
+      decryptedUserId = decryptData(user_id);
+    } catch (error) {
+      return res.status(400).json({ message: "ID de usuario inválido o corrupto" });
+    }
+    const user = await userData.findById(user_id);
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+    await userData.update(user_id, { user_id: decryptedUserId });
+    await userData.deleteUser(decryptedUserId);
+
+    res.status(200).json({ 
+      message: "Usuario eliminado exitosamente",
+      decrypted_user_id: decryptedUserId 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export default {
+  insert,
+  login,
+  logout,
+  sessionStatus,
+  listSessions,
+  showUsers,
+  update,
+  deleteSessions,
+  deleteUser,
+};

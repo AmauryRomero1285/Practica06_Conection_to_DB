@@ -9,7 +9,7 @@ import {model,Schema} from "mongoose";
     email:String,
     status:{
         type:String,
-        enum:["active","inactive","finished for user","finished by inactivity"],
+        enum:["active","inactive","finished for user"],
         default:"inactive",
     }
  },
