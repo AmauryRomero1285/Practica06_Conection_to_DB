@@ -109,8 +109,8 @@ const insert = async (req, res) => {
       createdAt: new Date(),
       lastAccessedAt: new Date(),
     });
-
     res.status(200).json({ message: "Usuario registrado exitosamente", user });
+    console.log("Id de la sesión: ",userId);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
