@@ -39,21 +39,16 @@ const getClientIP = (req) => {
 };
 
 // Función para calcular el tiempo de inactividad
-const calculateSessionInactivity = async (sessionId, lastAccessedAt) => {
+const calculateSessionInactivity = (lastAccessedAt) => {
   const now = moment();
   const lastAccessed = moment(lastAccessedAt);
   const duration = moment.duration(now.diff(lastAccessed));
-  const inactivityTime = `${duration.minutes()}m ${duration.seconds()}s`;
-
-  if (duration.asMinutes() >= 2) {
-    await sessionData.update(sessionId, { status: "inactive" });
-    console.log(
-      `La sesión ${sessionId} está inactiva. Debe reactivarse para continuar.`
-    );
-  }
-
-  return inactivityTime;
+  return {
+    inactivityTime: `${duration.minutes()}m ${duration.seconds()}s`,
+    isInactive: duration.asMinutes() >= 2,
+  };
 };
+
 
 //Funcion para generar un id
 const generateID = () => {
@@ -240,10 +235,19 @@ const sessionStatus = async (req, res) => {
       return res.status(404).json({ message: "Sesión no encontrada" });
     }
 
+    const { inactivityTime, isInactive } = calculateSessionInactivity(session.lastAccessedAt);
+
+    if (isInactive) {
+      await sessionData.update(sessionId, { status: "inactive" });
+      return res.status(440).json({ message: "La sesión ha expirado por inactividad." });
+    } else {
+      await sessionData.update(sessionId, { lastAccessedAt: new Date() });
+    }
+
     res.status(200).json({
       message: "Sesión activa",
       session,
-      inactivityTime: calculateSessionInactivity(sessionId,session.lastAccessedAt),
+      inactivityTime,
     });
 
   } catch (error) {
@@ -252,25 +256,35 @@ const sessionStatus = async (req, res) => {
 };
 
 
+
 // Listar sesiones activas
 const listSessions = async (req, res) => {
   try {
     const sessions = await sessionData.showSessions();
-    const formattedSessions = sessions.map((session) => ({
-      sessionId: session.session_ID,
-      email: session.email,
-      nickname: session.nickname,
-      macAddress: session.macAddress,
-      ip: session.ip,
-      createdAt: moment(session.createdAt).format("YYYY-MM-DD HH:mm:ss"),
-      lastAccessedAt: moment(session.lastAccessedAt).format(
-        "YYYY-MM-DD HH:mm:ss"
-      ),
-      inactivityTime: calculateSessionInactivity(session.lastAccessedAt),
-    }));
+    const formattedSessions = await Promise.all(
+      sessions.map(async (session) => {
+        const { inactivityTime, isInactive } = calculateSessionInactivity(session.lastAccessedAt);
+
+        if (isInactive && session.status !== "inactive") {
+          await sessionData.update(session.session_ID, { status: "inactive" });
+        }
+
+        return {
+          sessionId: session.session_ID,
+          email: session.email,
+          nickname: session.nickname,
+          macAddress: session.macAddress,
+          ip: session.ip,
+          createdAt: moment(session.createdAt).format("YYYY-MM-DD HH:mm:ss"),
+          lastAccessedAt: moment(session.lastAccessedAt).format("YYYY-MM-DD HH:mm:ss"),
+          inactivityTime,
+          status: isInactive ? "inactive" : session.status,
+        };
+      })
+    );
 
     res.status(200).json({
-      message: "Sesiones: ",
+      message: "Sesiones activas:",
       totalSessions: formattedSessions.length,
       sessions: formattedSessions,
     });
@@ -278,6 +292,7 @@ const listSessions = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Mostrar las sesiones activas en al base de datos
 const showUsers = async (req, res) => {
@@ -327,16 +342,16 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    const { password } = user;
+    const { password: encryptedPassword } = user;
     let decryptedPass;
-    
+
     try {
-      decryptedPass = decryptData(password);
+      decryptedPass = decryptData(encryptedPassword);
     } catch (error) {
       return res.status(400).json({ message: "Contraseña inválida o corrupta" });
     }
 
-    if (decryptedpassword !== decryptedPass) {
+    if (password !== decryptedPass) {
       return res.status(403).json({ message: "Contraseña incorrecta" });
     }
 
@@ -347,6 +362,7 @@ const deleteUser = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 export default {
   insert,
