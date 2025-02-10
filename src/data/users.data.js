@@ -8,7 +8,7 @@ userData.insert = async (user) => {
 
 // Buscar usuario por dirección email
 userData.findByEmail = async (email) => {
-    return await User.findOne({ email });
+    return await User.findOne({ email:email });
 };
 
 userData.findById = async (user_id) => {

@@ -22,8 +22,8 @@ sessionData.findSession=async(session_ID)=>{
 
 
 //Actualizar sesión
-sessionData.update = async (sessionID, session) => {
-  return await Session.findOneAndUpdate({ session_ID: sessionID }, session);
+sessionData.update = async (session_ID, session) => {
+  return await Session.findOneAndUpdate({ session_ID: session_ID }, session);
 };
 
 //Eliminar Sesiones

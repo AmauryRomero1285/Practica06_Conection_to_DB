@@ -4,6 +4,7 @@ import os from "os";
 import userData from "../data/users.data.js";
 import sessionData from "../data/sessions.data.js";
 import crypto from "crypto";
+import fs from 'fs';
 
 // Función para obtener la IP local
 const getLocalIP = () => {
@@ -57,17 +58,25 @@ const calculateSessionInactivity = async (sessionId, lastAccessedAt) => {
 //Funcion para generar un id
 const generateID = () => {
   return (
-    Math.floor(10000 + Math.random() * 90000) +
-    Date.now().toString().slice(-5)
+    Math.floor(10000 + Math.random() * 90000) + Date.now().toString().slice(-5)
   );
 };
 
-// Generar clave pública y privada para cifrado
-const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
-  modulusLength: 512,
-  publicKeyEncoding: { type: "spki", format: "pem" },
-  privateKeyEncoding: { type: "pkcs8", format: "pem" },
-});
+// Solo generar claves si no existen
+if (!fs.existsSync("private.pem") || !fs.existsSync("public.pem")) {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 512,
+    publicKeyEncoding: { type: "spki", format: "pem" },
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+  });
+
+  fs.writeFileSync("public.pem", publicKey);
+  fs.writeFileSync("private.pem", privateKey);
+}
+
+// Cargar claves guardadas
+const publicKey = fs.readFileSync("public.pem", "utf8");
+const privateKey = fs.readFileSync("private.pem", "utf8");
 
 // Función para cifrar datos
 const encryptData = (data) => {
@@ -76,41 +85,42 @@ const encryptData = (data) => {
 
 // Función para descifrar datos
 const decryptData = (encryptedData) => {
-  return crypto.privateDecrypt(privateKey, Buffer.from(encryptedData, "base64")).toString();
+  return crypto
+    .privateDecrypt(privateKey, Buffer.from(encryptedData, "base64"))
+    .toString();
 };
-
 
 // Registrar usuario
 const insert = async (req, res) => {
-  const { email, nickname, macAddress } = req.body;
+  const { email, nickname, password } = req.body;
 
-  if (!email || !nickname || !macAddress) {
+  if (!email || !nickname || !password) {
     return res
       .status(400)
       .json({ message: "Todos los campos son obligatorios" });
   }
 
   try {
-     const existingUser = await userData.findByEmail(email);
-     if (existingUser) {
-       return res.status(400).json({
-         message: `Ya se encuentra un usuario registrado`,
-       });
-     }
+    const existingUser = await userData.findByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({
+        message: `Ya existe un usuario registrado con el correo: ${email}`,
+      });
+    }
 
     const userId = generateID();
-    const encryptedUserId = encryptData(userId);
+    const encryptedPassword = encryptData(password);
     const user = await userData.insert({
-      user_id: encryptedUserId,
+      user_id: userId,
       email,
       nickname,
-      macAddress,
+      password:encryptedPassword,
       ip: getClientIP(req),
       createdAt: new Date(),
       lastAccessedAt: new Date(),
     });
     res.status(200).json({ message: "Usuario registrado exitosamente", user });
-    console.log("Id de la sesión: ",userId);
+    console.log("Contraseña del usuario: ", password);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -118,24 +128,40 @@ const insert = async (req, res) => {
 
 // Iniciar sesión
 const login = async (req, res) => {
-  const { email, nickname, user_id } = req.body;
+  const { email, password } = req.body;
 
-  if (!email || !nickname || !user_id) {
+  if (!email || !password) {
     return res
       .status(400)
       .json({ message: "Todos los campos son obligatorios" });
   }
+
   try {
-    const user = await userData.findById(user_id);
+    const user = await userData.findByEmail(email);
     if (!user) {
-      return res.status(400).json({ message: "El Id de usuario no coincide." });
+      return res
+        .status(400)
+        .json({ message: "El Usuario no se encuentra registrado." });
+    }
+
+    const { password:encryptedPassword, nickname } = user;
+
+    let decryptedPass;
+    try {
+      decryptedPass = decryptData(encryptedPassword);
+    } catch (error) {
+      return res.status(400).json({ message: "Error al desencriptar la contraseña" });
+    }
+
+    if (decryptedPass !== password) {
+      return res.status(400).json({ message: "Contraseña incorrecta" });
     }
 
     const sessionId = uuidv4();
     let session = await sessionData.findSession(email);
 
     if (!session) {
-      // Crear una nueva sesión si el email no tiene sesión
+      // Crear una nueva sesión si el email no tiene sesión activa
       const now = new Date();
       session = {
         session_ID: sessionId,
@@ -146,10 +172,6 @@ const login = async (req, res) => {
         lastAccessedAt: now,
       };
       await sessionData.insert(session);
-      req.session.user = session;
-      return res
-        .status(200)
-        .json({ message: "Nueva sesión creada", sessionId: sessionId });
     } else {
       // Actualizar el session_ID si la sesión ya existe
       await sessionData.update(session.session_ID, {
@@ -157,28 +179,37 @@ const login = async (req, res) => {
         status: "active",
         lastAccessedAt: new Date(),
       });
-      req.session.user = { ...session, session_ID: sessionId };
-      return res
-        .status(200)
-        .json({ message: "Sesión actualizada", sessionId: sessionId });
     }
+
+    req.session.user = { ...session, session_ID: sessionId };
+
+    return res
+      .status(200)
+      .json({ message: session ? "Sesión actualizada" : "Nueva sesión creada", sessionId });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+
 // Cerrar sesión
 const logout = async (req, res) => {
   const { sessionId } = req.body;
 
-  if (!sessionId) {
-    return res.status(400).json({ message: "ID de sesión requerido" });
+  if (!sessionId ) {
+    return res.status(400).json({ message: "El campo no puede ir vacío" });
   }
 
   try {
-    // Actualizar el session_ID a un valor único y marcar el estado como "finished by user"
+    const user = await sessionData.findSession(sessionId);
+    
+    if (!user) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
     await sessionData.update(sessionId, {
-      session_ID: `closed_${sessionId}`, // Valor único para evitar duplicados
+      session_ID: `closed_${sessionId}`,
       status: "finished by user",
     });
 
@@ -188,6 +219,7 @@ const logout = async (req, res) => {
       }
       res.status(200).json({ message: "Sesión cerrada exitosamente" });
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -196,12 +228,14 @@ const logout = async (req, res) => {
 // Estado de sesión
 const sessionStatus = async (req, res) => {
   const { sessionId } = req.body;
+
   if (!sessionId) {
-    return res.status(400).json({ message: "ID de sesión requerido" });
+    return res.status(400).json({ message: "SessionId requerido" });
   }
 
   try {
     const session = await sessionData.findSession(sessionId);
+
     if (!session) {
       return res.status(404).json({ message: "Sesión no encontrada" });
     }
@@ -209,12 +243,14 @@ const sessionStatus = async (req, res) => {
     res.status(200).json({
       message: "Sesión activa",
       session,
-      inactivityTime: calculateSessionInactivity(session.lastAccessedAt),
+      inactivityTime: calculateSessionInactivity(sessionId,session.lastAccessedAt),
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Listar sesiones activas
 const listSessions = async (req, res) => {
@@ -234,7 +270,7 @@ const listSessions = async (req, res) => {
     }));
 
     res.status(200).json({
-      message: "Sesiones activas",
+      message: "Sesiones: ",
       totalSessions: formattedSessions.length,
       sessions: formattedSessions,
     });
@@ -279,30 +315,34 @@ const deleteSessions = async (req, res) => {
 
 //Borrar usuario
 const deleteUser = async (req, res) => {
-  const {user_id} = req.body;
+  const { email, password } = req.body;
 
-  if (!user_id) {
-    return res.status(400).json({ message: "ID de usuario requerido" });
+  if (!email || !password) {
+    return res.status(400).json({ message: "Ningún campo debe estar vacío" });
   }
 
   try {
-    let decryptedUserId;
-    try {
-      decryptedUserId = decryptData(user_id);
-    } catch (error) {
-      return res.status(400).json({ message: "ID de usuario inválido o corrupto" });
-    }
-    const user = await userData.findById(user_id);
+    const user = await userData.findByEmail(email);
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    await userData.update(user_id, { user_id: decryptedUserId });
-    await userData.deleteUser(decryptedUserId);
 
-    res.status(200).json({ 
-      message: "Usuario eliminado exitosamente",
-      decrypted_user_id: decryptedUserId 
-    });
+    const { password } = user;
+    let decryptedPass;
+    
+    try {
+      decryptedPass = decryptData(password);
+    } catch (error) {
+      return res.status(400).json({ message: "Contraseña inválida o corrupta" });
+    }
+
+    if (decryptedpassword !== decryptedPass) {
+      return res.status(403).json({ message: "Contraseña incorrecta" });
+    }
+
+    await userData.deleteUser(email);
+    res.status(200).json({ message: "Usuario eliminado exitosamente" });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
