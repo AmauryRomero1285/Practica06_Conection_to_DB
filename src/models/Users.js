@@ -8,7 +8,7 @@ const userSchema = new Schema(
     },
     email: String,
     nickname: String,
-    macAddress:String,
+    password:String,
     ip:String,
   },
   {
