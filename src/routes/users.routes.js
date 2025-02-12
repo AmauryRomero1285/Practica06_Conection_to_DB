@@ -13,8 +13,8 @@ userRouter.get("/", (req, res) => {
 
 // Rutas de usuario
 userRouter.post("/register", usersController.insert);
-userRouter.get("/update/:sessionID", usersController.update);
-userRouter.get("/showUsers", usersController.showUsers);
+userRouter.put("/update/:sessionId", usersController.update);
+userRouter.get("/showSessions", usersController.showSessions);
 userRouter.post('/deleteUser',usersController.deleteUser);
 
 // Rutas de sesión
